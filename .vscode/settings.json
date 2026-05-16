@@ -1,0 +1,8 @@
+{
+    "clangd.arguments": [
+        "--query-driver=D:\\MinGW64\\bin\\g++.exe",
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=never"
+    ]
+}

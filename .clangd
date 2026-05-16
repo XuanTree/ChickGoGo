@@ -1,0 +1,12 @@
+CompileFlags:
+  Add:
+    - "-std=c++17"
+  Remove:
+    - "-f*"
+    - "-W*"
+
+Diagnostics:
+  UnusedIncludes: Strict
+
+Index:
+  Background: Build

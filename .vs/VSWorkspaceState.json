@@ -1,0 +1,13 @@
+{
+  "OutputFoldersPerTargetSystem": {
+    "Local Machine": [
+      "out\\build\\GCC 15.2.0 x86_64-w64-mingw32",
+      "out\\install\\GCC 15.2.0 x86_64-w64-mingw32"
+    ]
+  },
+  "ExpandedNodes": [
+    ""
+  ],
+  "SelectedNode": "\\include",
+  "PreviewInSolutionExplorer": false
+}

@@ -1,0 +1,20 @@
+[
+{
+  "directory": "D:/Projects/ChickGoGo/out/build/GCC 15.2.0 x86_64-w64-mingw32",
+  "command": "D:\\MinGW64\\bin\\g++.exe  @CMakeFiles/ChickGoGo.dir/includes_CXX.rsp -g -o CMakeFiles\\ChickGoGo.dir\\main.cpp.obj -c D:\\Projects\\ChickGoGo\\main.cpp",
+  "file": "D:/Projects/ChickGoGo/main.cpp",
+  "output": "CMakeFiles/ChickGoGo.dir/main.cpp.obj"
+},
+{
+  "directory": "D:/Projects/ChickGoGo/out/build/GCC 15.2.0 x86_64-w64-mingw32",
+  "command": "D:\\MinGW64\\bin\\g++.exe  @CMakeFiles/ChickGoGo.dir/includes_CXX.rsp -g -o CMakeFiles\\ChickGoGo.dir\\src\\ResourceManager.cpp.obj -c D:\\Projects\\ChickGoGo\\src\\ResourceManager.cpp",
+  "file": "D:/Projects/ChickGoGo/src/ResourceManager.cpp",
+  "output": "CMakeFiles/ChickGoGo.dir/src/ResourceManager.cpp.obj"
+},
+{
+  "directory": "D:/Projects/ChickGoGo/out/build/GCC 15.2.0 x86_64-w64-mingw32",
+  "command": "D:\\MinGW64\\bin\\g++.exe  @CMakeFiles/ChickGoGo.dir/includes_CXX.rsp -g -o CMakeFiles\\ChickGoGo.dir\\src\\string.cpp.obj -c D:\\Projects\\ChickGoGo\\src\\string.cpp",
+  "file": "D:/Projects/ChickGoGo/src/string.cpp",
+  "output": "CMakeFiles/ChickGoGo.dir/src/string.cpp.obj"
+}
+]
