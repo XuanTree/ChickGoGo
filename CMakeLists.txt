@@ -39,6 +39,7 @@ FetchContent_MakeAvailable(sfml)
 set(HEADERS
     include/Entity.hpp
     include/Game.hpp
+    include/PlatformUtils.hpp
     include/ResourceManager.hpp
     include/string.hpp
     include/States/State.hpp
@@ -50,6 +51,7 @@ set(HEADERS
 set(SOURCES
     main.cpp
     src/Game.cpp
+    src/PlatformUtils.cpp
     src/ResourceManager.cpp
     src/string.cpp
     src/Entities/Chick.cpp
