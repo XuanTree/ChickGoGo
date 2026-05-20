@@ -1,8 +1,0 @@
-[
-{
-  "directory": "D:/Projects/ChickGoGo",
-  "command": "D:\\MinGW64\\bin\\g++.exe -ID:/Projects/ChickGoGo/./include -isystem D:/SFML64/include -g -std=c++17 -o out\\build\\GCC 15.2.0 x86_64-w64-mingw32\\CMakeFiles\\ChickGoGo.dir\\main.cpp.obj -c main.cpp",
-  "file": "main.cpp",
-  "output": "out/build/GCC 15.2.0 x86_64-w64-mingw32/CMakeFiles/ChickGoGo.dir/main.cpp.obj"
-}
-]
