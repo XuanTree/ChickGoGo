@@ -1,0 +1,232 @@
+# ============================================================
+# ChickGoGo CI/CD 工作流
+# 每次推送 tag (v*) 时，自动在 Windows/Linux/macOS 上编译
+# 并生成可直接运行的程序包，发布到 GitHub Releases
+# ============================================================
+
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'        # 推送 v1.0.0, v2.0.0 等标签时触发
+  workflow_dispatch: # 也支持手动触发
+
+jobs:
+  # ============================================================
+  # Windows 构建
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            git
+
+      - name: Configure CMake (Windows)
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B out/build/windows \
+            -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Windows)
+        shell: msys2 {0}
+        run: |
+          cmake --build out/build/windows -j $(nproc)
+
+      - name: Package (Windows)
+        shell: msys2 {0}
+        run: |
+          # 查找 CMake 自动生成的可运行包目录
+          dir=$(ls -d out/build/windows/ChickGoGo-*-Windows 2>/dev/null | head -1)
+          if [ -n "$dir" ]; then
+            pkg_name=$(basename "$dir")
+            cd out/build/windows
+            # 使用 7z 打包（MSYS2 自带）
+            7z a -tzip "${pkg_name}.zip" "./${pkg_name}/"
+            echo "PACKAGE=${pkg_name}.zip" >> $GITHUB_ENV
+            cd ../../..
+          fi
+
+      - name: Upload Artifact (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-Package
+          path: out/build/windows/ChickGoGo-*-Windows.zip
+
+  # ============================================================
+  # Linux 构建
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake g++ make git \
+            libx11-dev libgl-dev \
+            libpthread-stubs0-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B out/build/linux \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build out/build/linux -j $(nproc)
+
+      - name: Package
+        run: |
+          # 查找 CMake 自动生成的可运行包目录
+          dir=$(ls -d out/build/linux/ChickGoGo-*-Linux 2>/dev/null | head -1)
+          if [ -n "$dir" ]; then
+            pkg_name=$(basename "$dir")
+            # 添加启动脚本和 .desktop 文件
+            cat > "$dir/run.sh" << 'EOF'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+./ChickGoGo
+EOF
+            chmod +x "$dir/run.sh"
+            # 打包
+            cd out/build/linux
+            tar czf "${pkg_name}.tar.gz" "$pkg_name"
+            echo "PACKAGE=${pkg_name}.tar.gz" >> $GITHUB_ENV
+            cd ../../..
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-Package
+          path: out/build/linux/ChickGoGo-*-Linux.tar.gz
+
+  # ============================================================
+  # macOS 构建
+  # ============================================================
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          brew install cmake make
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B out/build/macos \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+
+      - name: Build
+        run: |
+          cmake --build out/build/macos -j $(sysctl -n hw.logicalcpu)
+
+      - name: Extract Version
+        run: |
+          echo "PROJECT_VERSION=$(grep 'project(' CMakeLists.txt | grep -oP 'VERSION \K[0-9.]+')" >> $GITHUB_ENV
+
+      - name: Package .app
+        run: |
+          APP_DIR="out/build/macos/ChickGoGo.app"
+          PKG_NAME="ChickGoGo-${PROJECT_VERSION}-macOS"
+          # 复制资源到 .app 包内
+          mkdir -p "$APP_DIR/Contents/Resources/assets/fonts"
+          mkdir -p "$APP_DIR/Contents/Resources/assets/music"
+          mkdir -p "$APP_DIR/Contents/Resources/assets/sounds"
+          mkdir -p "$APP_DIR/Contents/Resources/assets/sprites"
+          cp assets/fonts/* "$APP_DIR/Contents/Resources/assets/fonts/"
+          cp assets/music/* "$APP_DIR/Contents/Resources/assets/music/"
+          cp assets/sounds/* "$APP_DIR/Contents/Resources/assets/sounds/"
+          cp assets/sprites/* "$APP_DIR/Contents/Resources/assets/sprites/"
+          cp LICENSE "$APP_DIR/Contents/Resources/"
+          # 生成图标
+          ICONSET="$APP_DIR/Contents/Resources/ChickGoGo.iconset"
+          mkdir -p "$ICONSET"
+          sips -z 16 16 assets/sprites/chick.png --out "$ICONSET/icon_16x16.png" 2>/dev/null || true
+          sips -z 32 32 assets/sprites/chick.png --out "$ICONSET/icon_16x16@2x.png" 2>/dev/null || true
+          sips -z 32 32 assets/sprites/chick.png --out "$ICONSET/icon_32x32.png" 2>/dev/null || true
+          sips -z 64 64 assets/sprites/chick.png --out "$ICONSET/icon_32x32@2x.png" 2>/dev/null || true
+          sips -z 128 128 assets/sprites/chick.png --out "$ICONSET/icon_128x128.png" 2>/dev/null || true
+          sips -z 256 256 assets/sprites/chick.png --out "$ICONSET/icon_128x128@2x.png" 2>/dev/null || true
+          sips -z 256 256 assets/sprites/chick.png --out "$ICONSET/icon_256x256.png" 2>/dev/null || true
+          sips -z 512 512 assets/sprites/chick.png --out "$ICONSET/icon_256x256@2x.png" 2>/dev/null || true
+          sips -z 512 512 assets/sprites/chick.png --out "$ICONSET/icon_512x512.png" 2>/dev/null || true
+          iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/ChickGoGo.icns" 2>/dev/null || true
+          rm -rf "$ICONSET"
+          # 打包 .app 为 zip
+          cd out/build/macos
+          ditto -c -k --sequesterRsrc --keepParent "ChickGoGo.app" "${PKG_NAME}.zip"
+          echo "PACKAGE=${PKG_NAME}.zip" >> $GITHUB_ENV
+          cd ../../..
+
+      - name: Upload Artifact (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-Package
+          path: out/build/macos/ChickGoGo-*-macOS.zip
+
+  # ============================================================
+  # 发布到 GitHub Releases
+  # ============================================================
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "ChickGoGo ${{ github.ref_name }}"
+          body: |
+            ## ChickGoGo ${{ github.ref_name }}
+
+            ### 📥 下载
+
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | 🪟 Windows | `ChickGoGo-*-Windows.zip` | 解压后双击 `ChickGoGo.exe` |
+            | 🐧 Linux | `ChickGoGo-*-Linux.tar.gz` | 解压后运行 `./ChickGoGo` |
+            | 🍎 macOS | `ChickGoGo-*-macOS.zip` | 解压后双击 `ChickGoGo.app` |
+
+            ### 🚀 运行方式
+
+            **Windows**: 解压 ZIP → 双击 `ChickGoGo.exe`
+            **Linux**: 解压 tar.gz → `./ChickGoGo` 或 `./run.sh`
+            **macOS**: 解压 ZIP → 双击 `ChickGoGo.app`
+
+            > 所有 SFML 依赖已静态链接，无需额外安装任何库。
+          files: |
+            Windows-Package/*.zip
+            Linux-Package/*.tar.gz
+            macOS-Package/*.zip
+          draft: false
+          prerelease: false
