@@ -80,15 +80,9 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # 安装最新 CMake（Kitware 官方仓库）
-          sudo apt-get install -y gpg wget
-          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-          echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/kitware.list
-          sudo apt-get update
-          sudo apt-get install -y cmake
           # 安装编译工具和 SFML 依赖
           sudo apt-get install -y \
-            g++ make git \
+            cmake g++ make git \
             libx11-dev libgl1-mesa-dev \
             libpthread-stubs0-dev \
             libxrandr-dev libudev-dev \
@@ -96,14 +90,22 @@ jobs:
             libopenal-dev libxcursor-dev \
             libxi-dev libxext-dev
 
+      - name: Debug - Check environment
+        run: |
+          echo "=== CMake version ==="
+          cmake --version
+          echo "=== G++ version ==="
+          g++ --version
+          echo "=== Check installed packages ==="
+          dpkg -l | grep -E 'libx11-dev|libgl|libxrandr|libudev|libflac|libvorbis|libogg|libopenal|libxcursor|libxi|libxext' 2>&1 || true
+          echo "=== Check pkg-config ==="
+          pkg-config --list-all 2>&1 | grep -E 'x11|gl|xrandr|udev|flac|vorbis|ogg|openal|xcursor|xi|xext' 2>&1 || true
+
       - name: Configure CMake
         run: |
-          cmake --version
-          g++ --version
           cmake -S . -B out/build/linux \
             -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            --debug-output \
             2>&1
 
       - name: Build
