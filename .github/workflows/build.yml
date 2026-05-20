@@ -56,8 +56,8 @@ jobs:
           if [ -n "$dir" ]; then
             pkg_name=$(basename "$dir")
             cd out/build/windows
-            # 使用 7z 打包（MSYS2 自带）
-            7z a -tzip "${pkg_name}.zip" "./${pkg_name}/"
+            # 使用 zip 命令打包
+            zip -r "${pkg_name}.zip" "./${pkg_name}/"
             echo "PACKAGE=${pkg_name}.zip" >> $GITHUB_ENV
             cd ../../..
           fi
@@ -83,7 +83,9 @@ jobs:
           sudo apt-get install -y \
             cmake g++ make git \
             libx11-dev libgl-dev \
-            libpthread-stubs0-dev
+            libpthread-stubs0-dev \
+            libxrandr-dev libudev-dev \
+            libflac-dev libvorbis-dev libogg-dev
 
       - name: Configure CMake
         run: |
