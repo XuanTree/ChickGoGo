@@ -101,13 +101,13 @@ jobs:
           dir=$(ls -d out/build/linux/ChickGoGo-*-Linux 2>/dev/null | head -1)
           if [ -n "$dir" ]; then
             pkg_name=$(basename "$dir")
-            # 添加启动脚本和 .desktop 文件
-            cat > "$dir/run.sh" << 'EOF'
-#!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-./ChickGoGo
-EOF
+            # 添加启动脚本
+            {
+              echo '#!/usr/bin/env bash'
+              echo 'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"'
+              echo 'cd "$SCRIPT_DIR"'
+              echo './ChickGoGo'
+            } > "$dir/run.sh"
             chmod +x "$dir/run.sh"
             # 打包
             cd out/build/linux
