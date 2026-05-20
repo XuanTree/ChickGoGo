@@ -34,7 +34,6 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-make
-            mingw-w64-x86_64-zip
             git
 
       - name: Configure CMake (Windows)
@@ -57,8 +56,8 @@ jobs:
           if [ -n "$dir" ]; then
             pkg_name=$(basename "$dir")
             cd out/build/windows
-            # 使用 zip 命令打包
-            zip -r "${pkg_name}.zip" "./${pkg_name}/"
+            # 使用 tar 创建 zip（MSYS2 的 tar 支持 -a 自动检测格式）
+            tar -a -cf "${pkg_name}.zip" "./${pkg_name}/"
             echo "PACKAGE=${pkg_name}.zip" >> $GITHUB_ENV
             cd ../../..
           fi
@@ -83,17 +82,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake g++ make git \
-            libx11-dev libgl1-mesa-dev \
+            libx11-dev libgl-dev \
             libpthread-stubs0-dev \
             libxrandr-dev libudev-dev \
             libflac-dev libvorbis-dev libogg-dev \
-            libopenal-dev libxcursor-dev
+            libopenal-dev libxcursor-dev \
+            libxi-dev libxext-dev
 
       - name: Configure CMake
         run: |
+          cmake --version
+          g++ --version
           cmake -S . -B out/build/linux \
             -G "Unix Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            2>&1
 
       - name: Build
         run: |
