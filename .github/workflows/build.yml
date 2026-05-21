@@ -35,7 +35,6 @@ jobs:
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-make
             git
-            mingw-w64-x86_64-zip
 
       - name: Configure CMake (Windows)
         shell: msys2 {0}
@@ -50,24 +49,24 @@ jobs:
           cmake --build out/build/windows -j $(nproc)
 
       - name: Package (Windows)
-        shell: msys2 {0}
+        shell: powershell
         run: |
           # 查找 CMake 自动生成的可运行包目录
-          dir=$(ls -d out/build/windows/ChickGoGo-*-Windows 2>/dev/null | head -1)
-          if [ -n "$dir" ]; then
-            pkg_name=$(basename "$dir")
-            echo "找到包目录: $dir"
-            echo "包名: $pkg_name"
-            # 使用 MSYS2 的 zip 命令打包（比 tar -a 更可靠）
-            cd out/build/windows
-            zip -r "${pkg_name}.zip" "${pkg_name}/"
-            echo "PACKAGE=${pkg_name}.zip" >> $GITHUB_ENV
-            cd ../../..
-          else
-            echo "警告: 未找到 ChickGoGo-*-Windows 目录"
-            echo "尝试直接查找 exe..."
-            ls -la out/build/windows/
-          fi
+          $dir = Get-ChildItem -Path "out/build/windows" -Directory -Filter "ChickGoGo-*-Windows" | Select-Object -First 1
+          if ($dir) {
+            $pkgName = $dir.Name
+            Write-Host "找到包目录: $($dir.FullName)"
+            Write-Host "包名: $pkgName"
+            # 使用 PowerShell 的 Compress-Archive 打包（Windows 内置，最可靠）
+            $zipPath = "out/build/windows/$pkgName.zip"
+            Compress-Archive -Path "$($dir.FullName)\*" -DestinationPath $zipPath -Force
+            "PACKAGE=$pkgName.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Host "打包完成: $zipPath"
+          } else {
+            Write-Host "警告: 未找到 ChickGoGo-*-Windows 目录"
+            Write-Host "列出 out/build/windows/ 内容:"
+            Get-ChildItem -Path "out/build/windows" -Recurse -Depth 0
+          }
 
       - name: Upload Artifact (Windows)
         uses: actions/upload-artifact@v4
