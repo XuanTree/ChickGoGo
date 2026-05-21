@@ -103,15 +103,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # MinGW 静态链接运行时库（Windows 分发无需带 DLL）
 if(MINGW)
-    # 静态链接 MinGW 运行时库（libstdc++、libgcc、libwinpthread）
+    # 完全静态链接 MinGW 运行时库（libstdc++、libgcc、libwinpthread 等）
     # 这样 exe 可以直接在未安装 MSYS2/MinGW 的 Windows 上运行
+    # 注意：Windows 系统库（opengl32, gdi32, winmm 等）不受影响，
+    # 它们链接的是系统 DLL 的导入库（.a），-static 不会改变它们
     target_link_options(${PROJECT_NAME} PRIVATE
-        -static-libgcc
-        -static-libstdc++
-        -Wl,-Bstatic
-        -lstdc++
-        -lpthread
-        -Wl,-Bdynamic
+        -static
     )
 endif()
 
