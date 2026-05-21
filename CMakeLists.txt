@@ -13,6 +13,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================================
+# C++ Standard
+# ============================================================
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ============================================================
 # SFML 3 - FetchContent 自动拉取
 # ============================================================
 set(SFML_BUILD_GRAPHICS ON)
@@ -94,6 +100,20 @@ endif()
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+# MinGW 静态链接运行时库（Windows 分发无需带 DLL）
+if(MINGW)
+    # 静态链接 MinGW 运行时库（libstdc++、libgcc、libwinpthread）
+    # 这样 exe 可以直接在未安装 MSYS2/MinGW 的 Windows 上运行
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,-Bstatic
+        -lstdc++
+        -lpthread
+        -Wl,-Bdynamic
+    )
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     sfml-graphics
