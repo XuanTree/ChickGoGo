@@ -80,7 +80,9 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # 安装编译工具和 SFML 依赖
+          # 安装编译工具和 SFML 3.1.0 所需的所有依赖
+          # SFML 3.1.0 在 Linux 上默认使用系统依赖 (SFML_USE_SYSTEM_DEPS=ON)
+          # 需要: X11 (Xrandr/Xcursor/Xi), OpenGL, UDev, Vorbis, FLAC, FreeType, HarfBuzz
           sudo apt-get install -y \
             cmake g++ make git \
             libx11-dev libgl1-mesa-dev \
@@ -88,18 +90,8 @@ jobs:
             libxrandr-dev libudev-dev \
             libflac-dev libvorbis-dev libogg-dev \
             libopenal-dev libxcursor-dev \
-            libxi-dev libxext-dev
-
-      - name: Debug - Check environment
-        run: |
-          echo "=== CMake version ==="
-          cmake --version
-          echo "=== G++ version ==="
-          g++ --version
-          echo "=== Check installed packages ==="
-          dpkg -l | grep -E 'libx11-dev|libgl|libxrandr|libudev|libflac|libvorbis|libogg|libopenal|libxcursor|libxi|libxext' 2>&1 || true
-          echo "=== Check pkg-config ==="
-          pkg-config --list-all 2>&1 | grep -E 'x11|gl|xrandr|udev|flac|vorbis|ogg|openal|xcursor|xi|xext' 2>&1 || true
+            libxi-dev libxext-dev \
+            libfreetype-dev libharfbuzz-dev
 
       - name: Configure CMake
         run: |
