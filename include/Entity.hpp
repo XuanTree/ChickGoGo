@@ -34,7 +34,7 @@ private:
 
     // 状态
     int health = 3;
-    int maxHealth = 3;
+    int maxHealth = 5;
     bool isOnGround = true;
     bool isJumpKeyHeld = false;
     sf::Clock jumpHoldClock;
@@ -48,8 +48,12 @@ private:
     // 音效
     sf::SoundBuffer jumpBuffer;
     sf::SoundBuffer hitBuffer;
+    sf::SoundBuffer healBuffer;
+    sf::SoundBuffer scoreBuffer;
     std::unique_ptr<sf::Sound> hitSound;
     std::unique_ptr<sf::Sound> jumpSound;
+    std::unique_ptr<sf::Sound> healSound;
+    std::unique_ptr<sf::Sound> scoreSound;
     bool soundsLoaded = false;
 
 public:
@@ -58,7 +62,8 @@ public:
     void init(const sf::Texture* tex, int frameCount,
               float startX, float startY, float groundY,
               float scale = 1.0f);
-    bool loadSounds(const std::string& jumpPath, const std::string& hitPath);
+    bool loadSounds(const std::string& jumpPath, const std::string& hitPath, 
+        const std::string& scorePath, const std::string& healPath);
 
     void handleInput();
     void update(float dt);
@@ -67,6 +72,8 @@ public:
     sf::FloatRect getBounds() const;
     void takeDamage();
     int getHealth() const { return health; }
+    void setHealth(int newHealth);
+    int getMaxHealth() const;
     bool isDead() const { return health <= 0; }
     bool isInvincible() const { return invincible; }
 
@@ -76,6 +83,8 @@ public:
     // Get Chick Sound
     sf::Sound& getHitSound() { return *hitSound; }
     sf::Sound& getJumpSound() { return *jumpSound; }
+    sf::Sound& getScoreSound() { return *scoreSound; }
+    sf::Sound& getHealSound() { return *healSound; }
 };
 
 // ==================== Obstacle ====================
@@ -88,6 +97,7 @@ private:
     float speed = 200.f;      // 向左移动速度 (px/s)
     float screenWidth = 800.f;
     bool scored = false;      // 玩家是否已经越过这个障碍物（计分用）
+    bool consumed = false;    // 治疗物是否已被吃掉
 
 public:
     Obstacle() = default;
@@ -100,6 +110,8 @@ public:
     bool isOffScreen() const;
     bool hasScored() const { return scored; }
     void markScored() { scored = true; }
+    bool isConsumed() const { return consumed; }
+    void markConsumed() { consumed = true; }
     float getRightEdge() const;
 };
 

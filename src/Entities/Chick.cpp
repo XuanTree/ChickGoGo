@@ -22,7 +22,7 @@ void Chick::init(const sf::Texture* tex, int fCount,
     }
 
     velocity = {0.f, 0.f};
-    health = maxHealth;
+    health = 3;
     isOnGround = true;
     invincible = false;
     invincibleTimer = 0.f;
@@ -30,10 +30,14 @@ void Chick::init(const sf::Texture* tex, int fCount,
     animationTimer = 0.f;
 }
 
-bool Chick::loadSounds(const std::string& jumpPath, const std::string& hitPath) {
-    if (jumpBuffer.loadFromFile(jumpPath) && hitBuffer.loadFromFile(hitPath)) {
+bool Chick::loadSounds(const std::string& jumpPath, const std::string& hitPath,
+    const std::string& scorePath, const std::string& healPath) {
+    if (jumpBuffer.loadFromFile(jumpPath) && hitBuffer.loadFromFile(hitPath)
+    && scoreBuffer.loadFromFile(scorePath) && healBuffer.loadFromFile(healPath)) {
         jumpSound = std::make_unique<sf::Sound>(jumpBuffer);
         hitSound = std::make_unique<sf::Sound>(hitBuffer);
+        scoreSound = std::make_unique<sf::Sound>(scoreBuffer);
+        healSound = std::make_unique<sf::Sound>(healBuffer);
         soundsLoaded = true;
         return true;
     }
@@ -158,13 +162,16 @@ void Chick::takeDamage() {
     }
 }
 
+void Chick::setHealth(int newHealth) { health = newHealth; }
+
+int Chick::getMaxHealth() const { return maxHealth; }
 
 void Chick::reset(float x, float y) {
     if (sprite) {
         sprite->setPosition({x, y});
     }
     velocity = {0.f, 0.f};
-    health = maxHealth;
+    health = 3;
     isOnGround = true;
     invincible = false;
     invincibleTimer = 0.f;

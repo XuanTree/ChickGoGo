@@ -4,6 +4,7 @@
 out/
 build/
 _CPack_Packages/
+temp_logs/
 
 # ============================================================
 # IDE / Editor
@@ -18,6 +19,7 @@ _CPack_Packages/
 .DS_Store
 Thumbs.db
 .clangd
+.deepseek
 
 # ============================================================
 # CMake

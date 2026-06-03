@@ -18,7 +18,13 @@ private:
     Game& game;
 
     Chick chick;
-    std::vector<Obstacle> obstacles;
+    std::vector<Obstacle> obstacles;  // 障碍物vector
+    std::vector<Obstacle> healingObs; // 治疗物vector 
+
+    // 生命值HUD纹理
+    sf::Texture heartTexture;
+    bool heartTexLoaded = false;
+    std::vector<sf::Sprite> heartSprites;
 
     // 障碍物生成
     float spawnTimer = 0.f;
@@ -26,10 +32,17 @@ private:
     float minSpawnInterval = 0.8f;    // 最小间隔
     float difficultyIncrease = 0.05f; // 每次生成后间隔缩短
 
-    // 障碍物纹理（用简单的彩色矩形代替）
-    // 如果assets里有障碍物纹理，可以改用纹理
-    sf::Texture obstacleTexture;
+    sf::Texture obstacleTexture; // 障碍物纹理
     bool obstacleTexLoaded = false;
+
+    // 治疗物生成
+    float spawnTimerHeal = 0.f;
+    float spawnIntervalHeal = 7.f;    // 初始生成间隔
+    float maxSpawnInterval = 32.f;    // 最大间隔
+    float difficultyIncreaseHeal = 1.f; // 每次生成一次治疗物品间隔增加
+
+    sf::Texture healingTexture; // 治疗物品
+    bool healingObTexLoaded = false;
 
     // 音乐
     sf::Music bgm;
@@ -47,8 +60,11 @@ private:
 
     std::mt19937 rng;
     std::uniform_real_distribution<float> obstacleYDist;
+    std::uniform_real_distribution<float> healingYDist;
 
+    void checkHealth();
     void spawnObstacle();
+    void spawnHeal();
     void checkCollisions();
     void cleanupObstacles();
 

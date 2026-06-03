@@ -13,12 +13,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================================
-# C++ Standard
-# ============================================================
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# ============================================================
 # SFML 3 - FetchContent 自动拉取
 # ============================================================
 set(SFML_BUILD_GRAPHICS ON)

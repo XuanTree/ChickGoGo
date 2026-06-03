@@ -6,7 +6,7 @@
 void Game::run(Game& game) {
     game.pushState(std::make_unique<MenuState>(game));
     sf::Clock clock;
-    sf::Image icon; //BUG 游戏结束的时候图标会消失
+    sf::Image icon;
     if (!icon.loadFromFile("assets\\sprites\\icon.png")) {
         std::cerr << "icon load failed!" << std::endl;
     } else {

@@ -12,19 +12,30 @@ GameState::GameState(Game& game)
     : game(game)
     , rng(static_cast<unsigned>(std::time(nullptr)))
     , obstacleYDist(200.f, 432.f)   // 障碍物Y范围
+    , healingYDist(200.f, 432.f)
 {
     // 加载纹理
     auto* cache = ResourceCache::GetInstance();
     auto* chickTex = cache->LoadTexture(string("chick"), string("assets/sprites/chick.png"));
     auto* obsTex = cache->LoadTexture(string("obstacle"), string("assets/sprites/spike.png"));
+    auto* heartTex = cache->LoadTexture(string("heart"), string("assets/sprites/heart.png"));
+    auto* healingTex = cache->LoadTexture(string("heal"), string("assets/sprites/heal.png"));
+    
     if (!chickTex) {
         // std::cerr << "[GameState] Failed to load chick texture!" << std::endl;
     }
     if (!obsTex) {
         // std::cerr << "[GameState] Failed to load obstacle texture!" << std::endl;
     }
-    if (!chick.loadSounds("assets/sounds/jump.wav", "assets/sounds/hit.wav")) {
+    if (!healingTex) {
+        // std::cerr << "[GameState] Failed to load healing obstacle texture!" << std::endl;
+    }
+    if (!chick.loadSounds("assets/sounds/jump.wav", "assets/sounds/hit.wav"
+        , "assets/sounds/nice.wav", "assets/sounds/heal.wav")) {
         // std::cerr << "[GameState] Failed to load chick sounds!" << std::endl;
+    }
+    if (!heartTex) {
+        // std::cerr << "[GameState] Failed to load heart texture!" << std::endl; 
     }
 
     // 加载背景音乐
@@ -34,8 +45,19 @@ GameState::GameState(Game& game)
     bgm.setLooping(true);
     bgm.play();
 
-    // 创建障碍物纹理
+    // 创建障碍物纹理 && HUD纹理
     obstacleTexLoaded = obstacleTexture.loadFromFile("assets/sprites/spike.png");
+    heartTexLoaded = heartTexture.loadFromFile("assets/sprites/heart.png");
+    healingObTexLoaded = healingTexture.loadFromFile("assets/sprites/heal.png");
+
+    // SFML3 Sprite 没有默认构造函数，需要在纹理加载后构造
+    if (heartTexLoaded) {
+        int maxHP = chick.getMaxHealth();  // 5
+        heartSprites.reserve(maxHP);
+        for (int i = 0; i < maxHP; ++i) {
+            heartSprites.emplace_back(heartTexture);
+        }
+    }
 
     // 加载字体
     if (font.openFromFile("assets/fonts/unifont.otf")) {
@@ -59,11 +81,47 @@ GameState::GameState(Game& game)
     ground.setFillColor(sf::Color(100, 60, 20));  // 棕色地面
 }
 
+static sf::View getLetterboxView(sf::View view, int windowWidth, int windowHeight) {
+    float windowRatio = static_cast<float>(windowWidth) / windowHeight;
+    float viewRatio = view.getSize().x / view.getSize().y;
+
+    float sizeX = 1.f;
+    float sizeY = 1.f;
+    float posX = 0.f;
+    float posY = 0.f;
+
+    bool horizontalSpacing = (windowRatio >= viewRatio);
+    if (horizontalSpacing)
+    {
+        // 黑边在左右两侧
+        sizeX = viewRatio / windowRatio;
+        posX = (1.f - sizeX) / 2.f;
+    }
+    else
+    {
+        // 黑边在上下两侧
+        sizeY = windowRatio / viewRatio;
+        posY = (1.f - sizeY) / 2.f;
+    }
+
+    view.setViewport(sf::FloatRect({ posX, posY }, { sizeX, sizeY }));
+    return view;
+}
+
 void GameState::handleInput() {
+    sf::View gameView = game.getWindow().getView();
     while (auto event = game.getWindow().pollEvent()) {
-        if (event->is<sf::Event::Closed>()) {
-            game.getWindow().close();
-        }
+        game.getWindow().handleEvents(
+            [&](const sf::Event::Closed&) {
+                game.getWindow().close();
+            },
+            [&](const sf::Event::Resized& resized) {
+                int newWidth = resized.size.x;
+                int newHeight = resized.size.y;
+
+                gameView = getLetterboxView(gameView, newWidth, newHeight);
+                game.getWindow().setView(gameView);
+            });
         // 暂停中只响应 ESC 和 q(quit)
         if (paused) {
             bgm.pause();
@@ -109,9 +167,12 @@ void GameState::update(sf::Time deltaTime) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
             chick.reset(100.f, 300.f);
             obstacles.clear();
+            healingObs.clear();             // 清除治疗物
             score = 0;
             spawnTimer = 0.f;
             spawnInterval = 2.0f;
+            spawnTimerHeal = 0.f;           // 重置治疗物计时器
+            spawnIntervalHeal = 7.f;        // 重置治疗物生成间隔
             bgm.setLooping(true);
             bgm.play();
         }
@@ -126,6 +187,11 @@ void GameState::update(sf::Time deltaTime) {
         obs.update(dt);
     }
 
+    // 更新治疗物品
+    for (auto& heal : healingObs) {
+        heal.update(dt);
+    }
+
     // 障碍物生成
     spawnTimer += dt;
     if (spawnTimer >= spawnInterval) {
@@ -137,11 +203,36 @@ void GameState::update(sf::Time deltaTime) {
         }
     }
 
+    // 治疗物生成
+    spawnTimerHeal += dt;
+    if (spawnTimerHeal >= spawnIntervalHeal) {
+        spawnTimerHeal = 0.f;
+        spawnHeal();
+        // 难度递增
+        if (spawnIntervalHeal < maxSpawnInterval) {
+            spawnIntervalHeal += difficultyIncrease;
+        }
+    }
+
     // 碰撞检测
     checkCollisions();
 
     // 清理出屏障碍物
     cleanupObstacles();
+}
+
+void GameState::checkHealth() {
+    auto& window = game.getWindow();
+
+    // 对爱心纹理进行检查，若没有正确加载，直接结束游戏
+    if (!heartTexLoaded) {
+        return;
+    }
+
+    for (int i = 0; i < chick.getHealth(); i++) {
+        heartSprites[i].setPosition({ 10.f+32.f*(i + 1), 40 });
+        window.draw(heartSprites[i]);
+    }
 }
 
 void GameState::spawnObstacle() {
@@ -152,6 +243,22 @@ void GameState::spawnObstacle() {
              200.f + score * 2.f,          // 速度随分数递增
              800.f);
     obstacles.push_back(std::move(obs));
+
+}
+
+void GameState::spawnHeal() {
+    // 修复: 检查纹理是否加载成功
+    if (!healingObTexLoaded) {
+        return;
+    }
+
+    Obstacle heals;
+    heals.init(&healingTexture,
+        850.f,
+        healingYDist(rng),
+        200.f + score * 2.f,
+        800.f);
+    healingObs.push_back(std::move(heals));
 }
 
 void GameState::checkCollisions() {
@@ -170,7 +277,21 @@ void GameState::checkCollisions() {
             obs.markScored();
             if (obs.getBounds().position.y > chick.getPosition().y) {
                 score++;
+                chick.getScoreSound().play();
             }
+        }
+    }
+
+    // 治疗物碰撞检测修复: 碰撞后标记为已消费，防止每帧重复治疗
+    for (auto& heal : healingObs) {
+        if (heal.isConsumed()) continue;  // 跳过已消费的治疗物
+
+        if (chickBounds.findIntersection(heal.getBounds())) {
+            if (chick.getHealth() < chick.getMaxHealth()) {
+                chick.setHealth(chick.getHealth() + 1);
+                chick.getHealSound().play();
+            }
+            heal.markConsumed();  // 标记为已消费，不再重复触发
         }
     }
 }
@@ -180,6 +301,10 @@ void GameState::cleanupObstacles() {
         std::remove_if(obstacles.begin(), obstacles.end(),
                        [](const Obstacle& o) { return o.isOffScreen(); }),
         obstacles.end());
+    healingObs.erase(
+        std::remove_if(healingObs.begin(), healingObs.end(),
+            [](const Obstacle& o) { return o.isOffScreen() || o.isConsumed(); }),
+        healingObs.end());
 }
 
 void GameState::draw() {
@@ -196,20 +321,27 @@ void GameState::draw() {
         obs.draw(window);
     }
 
+    // 绘制治疗物品
+    for (auto& heal : healingObs) {
+        heal.draw(window);
+    }
+
     // chick
     chick.draw(window);
 
     // HUD
-    if (fontLoaded) {
+    if (fontLoaded && heartTexLoaded) {
         // 生命
         sf::Text healthText(font);
-        healthText.setString("HP: " + std::to_string(chick.getHealth()));
+        healthText.setString("HP: ");
         healthText.setCharacterSize(24);
         healthText.setFillColor(sf::Color::White);
         healthText.setOutlineColor(sf::Color::Black);
         healthText.setOutlineThickness(1.2f);
         healthText.setPosition({ 10.f, 40.f });
         window.draw(healthText);
+
+        checkHealth();
 
         // 分数
         sf::Text scoreText(font);

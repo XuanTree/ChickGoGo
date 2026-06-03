@@ -12,6 +12,7 @@ void Obstacle::init(const sf::Texture* tex, float x, float y,
     }
 
     scored = false;
+    consumed = false;
 }
 
 void Obstacle::update(float dt) {
