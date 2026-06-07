@@ -4,5 +4,6 @@
         "--background-index",
         "--clang-tidy",
         "--header-insertion=never"
-    ]
+    ],
+    "commentTranslate.hover.enabled": true
 }

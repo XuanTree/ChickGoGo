@@ -1,5 +1,6 @@
 #include "Game.hpp"
 #include "States/PauseState.hpp"
+#include <iostream>
 
 // ==================== PauseState ====================
 

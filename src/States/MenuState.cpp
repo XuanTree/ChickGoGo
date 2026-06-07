@@ -1,6 +1,7 @@
 #include "Game.hpp"
 #include "States/GameState.hpp"
 #include "States/MenuState.hpp"
+#include <iostream>
 
 // ==================== MenuState ====================
 
@@ -12,12 +13,49 @@ MenuState::MenuState(Game& game) : game(game) {
     }
 }
 
+static sf::View getLetterboxView(sf::View view, int windowWidth, int windowHeight) {
+    float windowRatio = static_cast<float>(windowWidth) / windowHeight;
+    float viewRatio = view.getSize().x / view.getSize().y;
+
+    float sizeX = 1.f;
+    float sizeY = 1.f;
+    float posX = 0.f;
+    float posY = 0.f;
+
+    bool horizontalSpacing = (windowRatio >= viewRatio);
+    if (horizontalSpacing)
+    {
+        // 黑边在左右两侧
+        sizeX = viewRatio / windowRatio;
+        posX = (1.f - sizeX) / 2.f;
+    }
+    else
+    {
+        // 黑边在上下两侧
+        sizeY = windowRatio / viewRatio;
+        posY = (1.f - sizeY) / 2.f;
+    }
+
+    view.setViewport(sf::FloatRect({ posX, posY }, { sizeX, sizeY }));
+    return view;
+}
+
+
 void MenuState::handleInput() {
+    sf::View gameView = game.getWindow().getView();
     while (auto event = game.getWindow().pollEvent()) {
-        if (event->is<sf::Event::Closed>()) {
-            game.getWindow().close();
-        }
-        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+        game.getWindow().handleEvents(
+            [&](const sf::Event::Closed&) {
+                game.getWindow().close();
+            },
+            [&](const sf::Event::Resized& resized) {
+                int newWidth = resized.size.x;
+                int newHeight = resized.size.y;
+
+                gameView = getLetterboxView(gameView, newWidth, newHeight);
+                game.getWindow().setView(gameView);
+            });
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
             game.changeState(std::make_unique<GameState>(game));
         }
     }
@@ -57,7 +95,7 @@ void MenuState::draw() {
 
         // 操作说明
         sf::Text controls(font);
-        controls.setString(U"空格/W/Up: 跳过障碍物,按住可以跳得更高!!");
+        controls.setString(U"空格/W/Up: 跳过障碍物,按住可以跳得更高! Z键/Down: 向前发射一枚鸡蛋! ");
         controls.setCharacterSize(20);
         controls.setFillColor(sf::Color(180, 180, 180));
         sf::FloatRect cb = controls.getLocalBounds();

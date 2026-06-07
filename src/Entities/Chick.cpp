@@ -2,12 +2,18 @@
 #include <SFML/Window/Keyboard.hpp>
 #include <cmath>
 
+Chick::Chick() = default;
+Chick::~Chick() = default;
+
 void Chick::init(const sf::Texture* tex, int fCount,
                  float startX, float startY, float gndY,
                  float scale) {
     texture = tex;
     frameCount = fCount;
     groundY = gndY;
+
+    // 初始化蛋容器
+    eggs = std::make_unique<std::vector<Egg>>();
 
     if (texture) {
         sf::Vector2u texSize = texture->getSize();
@@ -30,14 +36,17 @@ void Chick::init(const sf::Texture* tex, int fCount,
     animationTimer = 0.f;
 }
 
+// 音效加载
 bool Chick::loadSounds(const std::string& jumpPath, const std::string& hitPath,
-    const std::string& scorePath, const std::string& healPath) {
+    const std::string& scorePath, const std::string& healPath, const std::string& explosionPath) {
     if (jumpBuffer.loadFromFile(jumpPath) && hitBuffer.loadFromFile(hitPath)
-    && scoreBuffer.loadFromFile(scorePath) && healBuffer.loadFromFile(healPath)) {
+    && scoreBuffer.loadFromFile(scorePath) && healBuffer.loadFromFile(healPath) 
+    && explosionBuffer.loadFromFile(explosionPath)) {
         jumpSound = std::make_unique<sf::Sound>(jumpBuffer);
         hitSound = std::make_unique<sf::Sound>(hitBuffer);
         scoreSound = std::make_unique<sf::Sound>(scoreBuffer);
         healSound = std::make_unique<sf::Sound>(healBuffer);
+        explosionSound = std::make_unique<sf::Sound>(explosionBuffer);
         soundsLoaded = true;
         return true;
     }
@@ -74,6 +83,29 @@ void Chick::handleInput() {
         isJumpKeyHeld = false;
         jumpHoldDuration = 0.f;
     }
+
+    // Z 键发射蛋 —— 边沿触发，防连发
+    static bool zWasPressed = false;
+    bool zNow = (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down));
+    if (zNow && !zWasPressed && getCurrentEggs() > 0) {
+        launchEgg();
+    }
+    zWasPressed = zNow;
+}
+
+void Chick::launchEgg() {
+    if (!eggs || currentEggs <= 0) return;
+
+    // 找第一个未发射的蛋进行发射
+    for (auto& egg : *eggs) {
+        if (!egg.isLaunched()) {
+            sf::Vector2f chickPos = getPosition();
+            egg.setPosition({chickPos.x, chickPos.y - 20.f});
+            egg.launch({300.f, -250.f});
+            currentEggs--;
+            break;
+        }
+    }
 }
 
 void Chick::update(float dt) {
@@ -81,7 +113,7 @@ void Chick::update(float dt) {
 
     // 重力
     velocity.y += gravity * dt;
-
+    
     // 更新位置
     sf::Vector2f pos = sprite->getPosition();
     pos.y += velocity.y * dt;
@@ -135,6 +167,16 @@ void Chick::draw(sf::RenderWindow& window) {
     }
 }
 
+std::vector<Egg>& Chick::getEggs() {
+    return *eggs;
+}
+
+void Chick::addEgg(Egg egg) {
+    if (eggs) {
+        eggs->push_back(std::move(egg));
+        currentEggs = static_cast<int>(eggs->size());
+    }
+}
 sf::FloatRect Chick::getBounds() const {
     if (!sprite) return sf::FloatRect();
     // 碰撞体略小于精灵，手感更好
@@ -164,6 +206,8 @@ void Chick::takeDamage() {
 
 void Chick::setHealth(int newHealth) { health = newHealth; }
 
+void Chick::setNewEggs(int newEgg) { currentEggs = newEgg; }
+
 int Chick::getMaxHealth() const { return maxHealth; }
 
 void Chick::reset(float x, float y) {
@@ -177,4 +221,17 @@ void Chick::reset(float x, float y) {
     invincibleTimer = 0.f;
     currentFrame = 0;
     animationTimer = 0.f;
+    // 重置蛋容器
+    if (eggs) {
+        eggs->clear();
+    }
+    currentEggs = 0;
+}
+
+void Chick::initEggs(const sf::Texture* eggTex) {
+    if (!eggs) {
+        eggs = std::make_unique<std::vector<Egg>>();
+    }
+    eggs->clear();
+    currentEggs = static_cast<int>(eggs->size());
 }

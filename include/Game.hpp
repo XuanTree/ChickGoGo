@@ -5,7 +5,6 @@
 #include <memory>
 #include <stack>
 #include <SFML/Graphics.hpp>
-#include <iostream>
 #include "States/State.hpp"
 #include "ResourceManager.hpp"
 

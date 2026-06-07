@@ -26,6 +26,11 @@ private:
     bool heartTexLoaded = false;
     std::vector<sf::Sprite> heartSprites;
 
+    // 蛋HUD纹理
+    sf::Texture eggTexture;
+    bool eggTexLoaded = false;
+    std::vector<sf::Sprite> eggs;
+
     // 障碍物生成
     float spawnTimer = 0.f;
     float spawnInterval = 2.0f;       // 初始生成间隔
@@ -53,7 +58,8 @@ private:
     bool fontLoaded = false;
 
     // 地面
-    sf::RectangleShape ground;
+    sf::Texture groundTexture;
+    bool groundTextureLoaded = false;
 
     // 暂停
     bool paused = false;

@@ -20,7 +20,9 @@ GameState::GameState(Game& game)
     auto* obsTex = cache->LoadTexture(string("obstacle"), string("assets/sprites/spike.png"));
     auto* heartTex = cache->LoadTexture(string("heart"), string("assets/sprites/heart.png"));
     auto* healingTex = cache->LoadTexture(string("heal"), string("assets/sprites/heal.png"));
-    
+    auto* eggTex = cache->LoadTexture(string("egg"), string("assets/sprites/egg.png"));
+    auto* groundTex = cache->LoadTexture(string("platforms"), string("assets/sprites/platforms.png"));
+
     if (!chickTex) {
         // std::cerr << "[GameState] Failed to load chick texture!" << std::endl;
     }
@@ -31,11 +33,18 @@ GameState::GameState(Game& game)
         // std::cerr << "[GameState] Failed to load healing obstacle texture!" << std::endl;
     }
     if (!chick.loadSounds("assets/sounds/jump.wav", "assets/sounds/hit.wav"
-        , "assets/sounds/nice.wav", "assets/sounds/heal.wav")) {
+        , "assets/sounds/nice.wav", "assets/sounds/heal.wav"
+    , "assets/sounds/explosion.wav")) {
         // std::cerr << "[GameState] Failed to load chick sounds!" << std::endl;
     }
     if (!heartTex) {
         // std::cerr << "[GameState] Failed to load heart texture!" << std::endl; 
+    }
+    if (!eggTex) {
+        // std::cerr << "[GameState] Failed to load egg texture!" << std::endl;
+    }
+    if (!groundTex) {
+        // std::cerr << "[GameState] Failed to load ground texture!" << std::endl; 
     }
 
     // 加载背景音乐
@@ -49,6 +58,9 @@ GameState::GameState(Game& game)
     obstacleTexLoaded = obstacleTexture.loadFromFile("assets/sprites/spike.png");
     heartTexLoaded = heartTexture.loadFromFile("assets/sprites/heart.png");
     healingObTexLoaded = healingTexture.loadFromFile("assets/sprites/heal.png");
+    eggTexLoaded = eggTexture.loadFromFile("assets/sprites/egg.png");
+    groundTextureLoaded = groundTexture.loadFromFile("assets/sprites/platforms.png");
+    sf::Texture* egg_ptr = &eggTexture;
 
     // SFML3 Sprite 没有默认构造函数，需要在纹理加载后构造
     if (heartTexLoaded) {
@@ -63,7 +75,7 @@ GameState::GameState(Game& game)
     if (font.openFromFile("assets/fonts/unifont.otf")) {
         fontLoaded = true;
     } else {
-        std::cerr << "Font Loaded Failed!" << std::endl;
+        //std::cerr << "Font Loaded Failed!" << std::endl;
     }
 
     // 初始化 Chick（14帧动画，精灵表水平排列）
@@ -75,10 +87,15 @@ GameState::GameState(Game& game)
                500.f - 80.f,                             // startY
                500.f,                                    // groundY
                chickScale);
-    // 地面
-    ground.setSize({800.f, 100.f});
-    ground.setPosition({0.f, 500.f});
-    ground.setFillColor(sf::Color(100, 60, 20));  // 棕色地面
+    chick.initEggs(egg_ptr);
+    // 初始化蛋 HUD 精灵，鸡仔最多有两枚蛋
+    if (eggTexLoaded) {
+        int maxEggs = chick.getMaxEggs();  // 2
+        eggs.reserve(maxEggs);
+        for (int i = 0; i < maxEggs; ++i) {
+            eggs.emplace_back(eggTexture);
+        }
+    };
 }
 
 static sf::View getLetterboxView(sf::View view, int windowWidth, int windowHeight) {
@@ -182,6 +199,18 @@ void GameState::update(sf::Time deltaTime) {
     // 更新 chick
     chick.update(dt);
 
+    // 更新 egg（已发射的蛋才有物理运动）
+    for (auto& egg : chick.getEggs()) {
+        egg.update(dt);
+        // 蛋落地或飞出屏幕右边界 → 消除蛋
+        if (egg.isLaunched() && egg.isAlive()) {
+            sf::Vector2f pos = egg.getPosition();
+            if (pos.y >= 450.f || pos.x > 850.f) {
+                egg.markDead();
+            }
+        }
+    }
+
     // 更新障碍物
     for (auto& obs : obstacles) {
         obs.update(dt);
@@ -225,13 +254,19 @@ void GameState::checkHealth() {
     auto& window = game.getWindow();
 
     // 对爱心纹理进行检查，若没有正确加载，直接结束游戏
-    if (!heartTexLoaded) {
+    if (!heartTexLoaded && !eggTexLoaded) {
         return;
     }
 
     for (int i = 0; i < chick.getHealth(); i++) {
         heartSprites[i].setPosition({ 10.f+32.f*(i + 1), 40 });
         window.draw(heartSprites[i]);
+    }
+
+    // 顺带把蛋也绘制了吧
+    for (int i = 0; i < chick.getCurrentEggs(); i++) {
+        eggs[i].setPosition({ 10.f+32.f*(i + 1), 70.f });
+        window.draw(eggs[i]);
     }
 }
 
@@ -262,14 +297,15 @@ void GameState::spawnHeal() {
 }
 
 void GameState::checkCollisions() {
-    if (chick.isInvincible()) return;
-
     sf::FloatRect chickBounds = chick.getBounds();
 
     for (auto& obs : obstacles) {
-        if (chickBounds.findIntersection(obs.getBounds())) {
-            chick.takeDamage();
-            chick.getHitSound().play();
+        // 小鸡受伤检测 —— 仅非无敌时生效
+        if (!chick.isInvincible()) {
+            if (chickBounds.findIntersection(obs.getBounds())) {
+                chick.takeDamage();
+                chick.getHitSound().play();
+            }
         }
 
         // 计分：鸡仔完全越过障碍才记一分
@@ -282,11 +318,34 @@ void GameState::checkCollisions() {
         }
     }
 
+    // 蛋与障碍物碰撞
+    for (auto& egg : chick.getEggs()) {
+        if (!egg.isLaunched() || !egg.isAlive()) continue;
+        sf::FloatRect eggBounds = egg.getBounds();
+        for (auto& obs : obstacles) {
+            if (eggBounds.findIntersection(obs.getBounds())) {
+                egg.markDead();
+                obs.markConsumed();
+                if (chick.areSoundsLoaded()) {
+                    chick.getExplosionSound().play();
+                }
+                break;  // 一个蛋只能摧毁一个障碍物
+            }
+        }
+    }
+
     // 治疗物碰撞检测修复: 碰撞后标记为已消费，防止每帧重复治疗
     for (auto& heal : healingObs) {
         if (heal.isConsumed()) continue;  // 跳过已消费的治疗物
 
         if (chickBounds.findIntersection(heal.getBounds())) {
+            if (chick.getCurrentEggs() < chick.getMaxEggs()) {
+                // 创建新蛋实例，初始位置跟随鸡仔
+                Egg newEgg;
+                newEgg.init(&eggTexture, chick.getPosition().x, chick.getPosition().y);
+                chick.getEggs().push_back(std::move(newEgg));
+                chick.setNewEggs(chick.getCurrentEggs() + 1);
+            }
             if (chick.getHealth() < chick.getMaxHealth()) {
                 chick.setHealth(chick.getHealth() + 1);
                 chick.getHealSound().play();
@@ -297,18 +356,30 @@ void GameState::checkCollisions() {
 }
 
 void GameState::cleanupObstacles() {
+    // 清理出屏或被蛋摧毁的障碍物
     obstacles.erase(
         std::remove_if(obstacles.begin(), obstacles.end(),
-                       [](const Obstacle& o) { return o.isOffScreen(); }),
+                       [](const Obstacle& o) { return o.isOffScreen() || o.isConsumed(); }),
         obstacles.end());
     healingObs.erase(
         std::remove_if(healingObs.begin(), healingObs.end(),
             [](const Obstacle& o) { return o.isOffScreen() || o.isConsumed(); }),
         healingObs.end());
+
+    // 清理已死亡的蛋
+    auto& eggVec = chick.getEggs();
+    eggVec.erase(
+        std::remove_if(eggVec.begin(), eggVec.end(),
+                       [](const Egg& e) { return !e.isAlive() && e.isLaunched(); }),
+        eggVec.end());
 }
 
 void GameState::draw() {
     auto& window = game.getWindow();
+    // 地面
+    sf::Sprite ground = *std::make_unique<sf::Sprite>(groundTexture);
+    ground.setScale({30.f, 15.f});
+    ground.setPosition({-60.f, 500.f});
 
     // 背景
     window.clear(sf::Color(135, 206, 235));  // 天蓝色
@@ -326,6 +397,13 @@ void GameState::draw() {
         heal.draw(window);
     }
 
+    // 绘制飞行中的蛋（发射后、存活中）
+    for (auto& egg : chick.getEggs()) {
+        if (egg.isLaunched() && egg.isAlive()) {
+            egg.draw(window);
+        }
+    }
+
     // chick
     chick.draw(window);
 
@@ -341,6 +419,16 @@ void GameState::draw() {
         healthText.setPosition({ 10.f, 40.f });
         window.draw(healthText);
 
+        // 蛋
+        sf::Text eggText(font);
+        eggText.setString("Eg: ");
+        eggText.setCharacterSize(24);
+        eggText.setFillColor(sf::Color::White);
+        eggText.setOutlineColor(sf::Color::Black);
+        eggText.setOutlineThickness(1.2f);
+        eggText.setPosition({ 10.f, 70.f });
+        window.draw(eggText);
+
         checkHealth();
 
         // 分数
@@ -350,7 +438,7 @@ void GameState::draw() {
         scoreText.setFillColor(sf::Color::White);
         scoreText.setOutlineColor(sf::Color::Black);
         scoreText.setOutlineThickness(1.2f);
-        scoreText.setPosition({ 10.f, 70.f });
+        scoreText.setPosition({ 10.f, 100.f });
         window.draw(scoreText);
 
         // 暂停

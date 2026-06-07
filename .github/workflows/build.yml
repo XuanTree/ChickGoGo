@@ -244,7 +244,11 @@ jobs:
             **Linux**: 解压 tar.gz → `./ChickGoGo` 或 `./run.sh`
             **macOS**: 解压 ZIP → 双击 `ChickGoGo.app`
 
-            > 所有 SFML 依赖已静态链接，无需额外安装任何库。
+            v1.2.0 更新:
+              - 修复了在菜单界面放大化画面比例显示不正确的问题
+              - 修复了鸡仔在无敌状态下不能吃玉米的问题
+              - 增加了发射鸡蛋的新机制：用鸡蛋炸毁障碍物！
+              - 优化了地面的表现（实际上是素材复用
           files: |
             Windows-Package/*.zip
             Linux-Package/*.tar.gz
